@@ -1,13 +1,17 @@
 package com.example.dlopez.popularmovies;
 
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.drawable.GradientDrawable;
 import android.media.Image;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.preference.PreferenceManager;
+import android.support.design.widget.Snackbar;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutCompat;
@@ -93,10 +97,31 @@ public class CatalogFragment extends Fragment {
     }
 
     private void updateCatalog(){
-        FetchCatalogTask task = new FetchCatalogTask();
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getActivity());
-        String orderBy = prefs.getString(getString(R.string.pref_order_key), getString(R.string.pref_order_default));
-        task.execute(orderBy);
+        ConnectivityManager cm =
+                (ConnectivityManager)getActivity().getSystemService(Context.CONNECTIVITY_SERVICE);
+
+        NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
+        boolean isConnected = activeNetwork != null &&
+                activeNetwork.isConnectedOrConnecting();
+        if(isConnected) {
+            FetchCatalogTask task = new FetchCatalogTask();
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getActivity());
+            String orderBy = prefs.getString(getString(R.string.pref_order_key), getString(R.string.pref_order_default));
+            task.execute(orderBy);
+        }
+        else{
+            Snackbar.make(getView(), "Internet Connection failed", Snackbar.LENGTH_INDEFINITE)
+                    //.setActionTextColor(Color.CYAN)
+                    .setActionTextColor(getResources().getColor(R.color.primary))
+                    .setAction("Reintent", new View.OnClickListener() {
+                        @Override
+                        public void onClick(View view) {
+                            Log.i("Snackbar", "Reintent download information.");
+                            updateCatalog();
+                        }
+                    })
+                    .show();
+        }
     }
 
     public class FetchCatalogTask extends AsyncTask<String, Void, String[]> {
@@ -202,8 +227,10 @@ public class CatalogFragment extends Fragment {
 
         protected void onPostExecute(String[] data) {
             mCatalogAdapter.clear();
-            for (String movie : data) {
-                mCatalogAdapter.add(new Movie(movie));
+            if(data != null ) {
+                for (String movie : data) {
+                    mCatalogAdapter.add(new Movie(movie));
+                }
             }
         }
     }
