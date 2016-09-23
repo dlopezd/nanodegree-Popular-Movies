@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <color name="grey">#cccccc</color>
+    <color name="movie_light">#EF9A9A</color>
     <color name="primary">#C62828</color>
     <color name="primary_dark">#B71C1C</color>
-    <color name="primary_light">#FFCDD2</color>
     <color name="accent">#607D8B</color>
     <color name="primary_text">#FFFFFF</color>
     <color name="secondary_text">#727272</color>
-    <color name="icons">#FFFFFF</color>
-    <color name="divider">#B6B6B6</color>
     <color name="background">#263238</color>
 </resources>

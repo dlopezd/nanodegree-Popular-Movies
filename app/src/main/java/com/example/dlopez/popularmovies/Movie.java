@@ -20,12 +20,22 @@ public class Movie {
     private final String TAG_RELEASE_DATE = "release_date";
     private final String TAG_TITLE = "original_title";
     private final String TAG_RATING = "vote_average";
-
-
+    private final String TAG_ID = "id";
 
 
     public Movie(String jsonStr){
         this.jsonStr = jsonStr;
+    }
+
+    public String getIdApi(){
+        try {
+            JSONObject movieJSON = new JSONObject(jsonStr);
+            String value = movieJSON.getString(TAG_ID);
+            return value;
+        } catch (JSONException e){
+            Log.e(LOG_TAG, "Error ", e);
+            return "";
+        }
     }
 
     public String getTitle(){

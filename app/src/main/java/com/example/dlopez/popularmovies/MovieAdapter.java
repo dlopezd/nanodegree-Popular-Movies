@@ -1,48 +1,48 @@
 package com.example.dlopez.popularmovies;
 
-import android.app.Activity;
+import android.content.Context;
+import android.database.Cursor;
+import android.support.v4.widget.CursorAdapter;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
 import android.widget.ImageView;
-import android.widget.TextView;
 
+import com.example.dlopez.popularmovies.data.MoviesContract;
 import com.squareup.picasso.Picasso;
 
-import java.util.List;
+public class MovieAdapter extends CursorAdapter {
 
-/**
- * Created by Daniel on 14-05-2016.
- * REFERENCE: https://github.com/udacity/android-custom-arrayadapter
- */
-public class MovieAdapter extends ArrayAdapter<Movie> {
-    private static final String LOG_TAG = MovieAdapter.class.getSimpleName();
+    public static class ViewHolder {
+        public final ImageView posterView;
 
-  // Constructor
-    public MovieAdapter(Activity context, List<Movie> movies) {
-        super(context, 0, movies);
+        public ViewHolder(View view) {
+            posterView = (ImageView) view.findViewById(R.id.movie_poster);
+        }
     }
 
-    /**
-     * Provides a view for an AdapterView (ListView, GridView, etc.)
-     */
+
+    public MovieAdapter(Context context, Cursor c, int flags)
+    {
+        super(context, c, flags);
+    }
+
     @Override
-    public View getView(int position, View convertView, ViewGroup parent) {
-        // Gets the AndroidFlavor object from the ArrayAdapter at the appropriate position
-        Movie movie = getItem(position);
+    public View newView(Context context, Cursor cursor, ViewGroup parent) {
+        View view = LayoutInflater.from(context).inflate(R.layout.grid_item_catalog, parent, false);
+        ViewHolder viewHolder = new ViewHolder(view);
+        view.setTag(viewHolder);
+        return view;
+    }
 
-        // Adapters recycle views to AdapterViews.
-        // If this is a new View object we're getting, then inflate the layout.
-        // If not, this view already has the layout inflated from a previous call to getView,
-        // and we modify the View widgets as usual.
-        if (convertView == null) {
-            convertView = LayoutInflater.from(getContext()).inflate(R.layout.grid_item_catalog, parent, false);
-        }
+    @Override
+    public void bindView(View view, Context context, Cursor cursor) {
+        ViewHolder viewHolder = (ViewHolder) view.getTag();
 
-        ImageView poster = (ImageView) convertView.findViewById(R.id.movie_poster);
-        Picasso.with(getContext()).load(movie.getPosterURL()).into(poster);
+        int idx_Url = cursor.getColumnIndex(MoviesContract.MovieEntry.COLUMN_POSTER_PATH);
+        String posterPath = cursor.getString(idx_Url);
+        String url = Utility.getPosterURL(Utility.POSTER_SIZE_PHONE, posterPath);
 
-        return convertView;
+        Picasso.with(context).load(url).into(viewHolder.posterView);
     }
 }

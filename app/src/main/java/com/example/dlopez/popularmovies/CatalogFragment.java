@@ -1,32 +1,31 @@
 package com.example.dlopez.popularmovies;
 
 import android.content.Context;
-import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.res.Configuration;
-import android.graphics.drawable.GradientDrawable;
-import android.media.Image;
+import android.database.Cursor;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.AsyncTask;
-import android.preference.PreferenceManager;
+import android.os.Bundle;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.Fragment;
-import android.os.Bundle;
-import android.support.v7.widget.LinearLayoutCompat;
+import android.support.v4.app.LoaderManager;
+import android.support.v4.content.CursorLoader;
+import android.support.v4.content.Loader;
 import android.util.Log;
-import android.view.Display;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.WindowManager;
-import android.widget.Adapter;
 import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.GridView;
 import android.widget.ListView;
-import android.widget.Toast;
+
+import com.example.dlopez.popularmovies.data.MoviesContract;
+import com.example.dlopez.popularmovies.sync.MoviesSyncAdapter;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -38,200 +37,190 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.ArrayList;
 
 /**
  * A placeholder fragment containing a simple view.
  */
-public class CatalogFragment extends Fragment {
-    MovieAdapter mCatalogAdapter;
+public class CatalogFragment extends Fragment implements LoaderManager.LoaderCallbacks<Cursor> {
+    private MovieAdapter mCatalogAdapter;
+    GridView mGridView;
+    private int mPosition = ListView.INVALID_POSITION;
 
+    private static final String SELECTED_KEY = "selected_position";
+    private static final int CATALOG_LOADER = 0;
+
+    public interface Callback {
+        public void onItemSelected(Uri MovieUri);
+    }
 
     public CatalogFragment() {
     }
 
     @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setHasOptionsMenu(true);
+    }
+
+    @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        inflater.inflate(R.menu.catalog_fragment, menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.action_refresh) {
+            updateCatalog();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
+                             final Bundle savedInstanceState) {
+
+        Uri moviesUri = MoviesContract.MovieEntry.CONTENT_URI;
+        Cursor cur = getActivity().getContentResolver().query(moviesUri, null, null, null, null);
+        mCatalogAdapter = new MovieAdapter(getActivity(), cur, 0);
+
         View rootView = inflater.inflate(R.layout.catalogfragment, container, false);
-
-        mCatalogAdapter = new MovieAdapter(getActivity(), new ArrayList<Movie>());
-
-        GridView gridView = (GridView) rootView.findViewById(R.id.gridview_catalog);
+        mGridView = (GridView) rootView.findViewById(R.id.gridview_catalog);
 
         // if the device is portrait, the gridview shows 2 columns
         // if the device is landscape, the gridview shows 3 columns
-        int rotation = getResources().getConfiguration().orientation;
-        if(rotation == Configuration.ORIENTATION_LANDSCAPE){
-            gridView.setNumColumns(3);
-        }
-        else{
-            gridView.setNumColumns(2);
+        //int rotation = getResources().getConfiguration().orientation;
+        //if (rotation == Configuration.ORIENTATION_LANDSCAPE) {
+        //    mGridView.setNumColumns(3);
+        //} else {
+        //    mGridView.setNumColumns(2);
+        //}
+        boolean tabletSize = getResources().getBoolean(R.bool.isTablet);
+        if (tabletSize) {
+            mGridView.setNumColumns(1);
         }
 
-        gridView.setAdapter(mCatalogAdapter);
-        gridView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+        mGridView.setAdapter(mCatalogAdapter);
+        mGridView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+
             @Override
-            public void onItemClick(AdapterView<?> adapterView, View view, int position, long l) {
-                Movie movie = mCatalogAdapter.getItem(position);
+            public void onItemClick(AdapterView adapterView, View view, int position, long l) {
+                // CursorAdapter returns a cursor at the correct position for getItem(), or null
+                // if it cannot seek to that position.
+                Cursor cursor = (Cursor) adapterView.getItemAtPosition(position);
+                if (cursor != null) {
+                    if (Utility.getPreferredOrder(getActivity()).equals(getString(R.string.pref_order_favorite))) {
+                        int idx = cursor.getColumnIndex(MoviesContract.MovieEntry.COLUMN_TITLE);
+                        String title = cursor.getString(idx);
 
-                Intent intent =  new Intent(getActivity(), DetailMovie.class);
-                intent.putExtra(getString(R.string.intent_original_title), movie.getTitle());
-                intent.putExtra(getString(R.string.intent_poster_thumbnail), movie.getThumbnailURL());
-                intent.putExtra(getString(R.string.intent_release_date), movie.getReleaseDate());
-                intent.putExtra(getString(R.string.intent_synopsis), movie.getSynopsis());
-                intent.putExtra(getString(R.string.intent_user_rating), movie.getRating());
-
-                startActivity(intent);
+                        ((Callback) getActivity())
+                                .onItemSelected(MoviesContract.FavoriteMovieEntry.buildMovieWithTitle(title));
+                    } else {
+                        int idx = cursor.getColumnIndex(MoviesContract.MovieEntry._ID);
+                        long id = cursor.getLong(idx);
+                        ((Callback) getActivity())
+                                .onItemSelected(MoviesContract.MovieEntry.buildMovieWithIdUri(id));
+                    }
+                }
+                mPosition = position;
             }
         });
+
+        if (savedInstanceState != null && savedInstanceState.containsKey(SELECTED_KEY)) {
+            mPosition = savedInstanceState.getInt(SELECTED_KEY);
+            Log.i("CATALOG","RECUPERADA POSICION "+mPosition);
+        }
 
         return rootView;
     }
 
-
     @Override
-    public void onStart(){
-        super.onStart();
-        updateCatalog();
+    public void onActivityCreated(Bundle savedInstanceState) {
+        getLoaderManager().initLoader(CATALOG_LOADER, null, this);
+        super.onActivityCreated(savedInstanceState);
     }
 
-    private void updateCatalog(){
+    void onOrderChanged() {
+        updateCatalog();
+        getLoaderManager().restartLoader(CATALOG_LOADER, null, this);
+    }
+
+    private void updateCatalog() {
         ConnectivityManager cm =
-                (ConnectivityManager)getActivity().getSystemService(Context.CONNECTIVITY_SERVICE);
+                (ConnectivityManager) getActivity().getSystemService(Context.CONNECTIVITY_SERVICE);
 
         NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
         boolean isConnected = activeNetwork != null &&
                 activeNetwork.isConnectedOrConnecting();
-        if(isConnected) {
-            FetchCatalogTask task = new FetchCatalogTask();
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getActivity());
-            String orderBy = prefs.getString(getString(R.string.pref_order_key), getString(R.string.pref_order_default));
-            task.execute(orderBy);
+
+        String order = Utility.getPreferredOrder(getActivity());
+        if (isConnected && !order.equals(getString(R.string.pref_order_favorite))) {
+            MoviesSyncAdapter.syncImmediately(getActivity());
+        } else {
+            Utility.setPreferredOrder(getString(R.string.pref_order_favorite), getContext());
         }
-        else{
-            Snackbar.make(getView(), "Internet Connection failed", Snackbar.LENGTH_INDEFINITE)
+        if (!isConnected && !order.equals(getString(R.string.pref_order_favorite))) {
+            getActivity().setTitle(getString(R.string.pref_order_favorite_label));
+            Snackbar.make(getView(), "Internet Connection failed. Showing Favorites", Snackbar.LENGTH_INDEFINITE)
                     //.setActionTextColor(Color.CYAN)
                     .setActionTextColor(getResources().getColor(R.color.primary))
-                    .setAction("Reintent", new View.OnClickListener() {
-                        @Override
-                        public void onClick(View view) {
-                            Log.i("Snackbar", "Reintent download information.");
-                            updateCatalog();
-                        }
-                    })
+                    //.setAction("Reintent", new View.OnClickListener() {
+                    //    @Override
+                    //   public void onClick(View view) {
+                    //        Log.i("Snackbar", "Reintent download information.");
+                    //        updateCatalog();
+                    //    }
+                    //})
                     .show();
         }
     }
 
-    public class FetchCatalogTask extends AsyncTask<String, Void, String[]> {
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        if (mPosition != GridView.INVALID_POSITION) {
+            outState.putInt(SELECTED_KEY, mPosition);
+            Log.i("CATALOG", "POSICION GUARDADA "+mPosition);
+        }
+        super.onSaveInstanceState(outState);
+    }
 
-        private final String LOG_TAG = FetchCatalogTask.class.getSimpleName();
+    @Override
+    public void onStart() {
+        super.onStart();
+    }
 
-        private String[] getMoviesDataFromJson(String catalogJsonStr) throws JSONException {
+    @Override
+    public Loader<Cursor> onCreateLoader(int i, Bundle bundle) {
 
-            final String OWM_RESULT = "results";
-
-            JSONObject forecastJson = new JSONObject(catalogJsonStr);
-            JSONArray catalogArray = forecastJson.getJSONArray(OWM_RESULT);
-
-            String[] resultStrs = new String[catalogArray.length()];
-            for (int i = 0; i < catalogArray.length(); i++) {
-                resultStrs[i] = catalogArray.getJSONObject(i).toString();
-            }
-            return resultStrs;
+        String order = Utility.getPreferredOrder(getActivity());
+        Uri moviesUri;
+        if (order.equals(getString(R.string.pref_order_favorite))) {
+            moviesUri = MoviesContract.FavoriteMovieEntry.CONTENT_URI;
+        } else {
+            moviesUri = MoviesContract.MovieEntry.CONTENT_URI;
         }
 
-        @Override
-        protected String[] doInBackground(String... params) {
+        return new CursorLoader(getActivity(),
+                moviesUri,
+                null,
+                null,
+                null,
+                null);
+    }
 
-            if (params.length == 0) {
-                return null;
-            }
-            HttpURLConnection urlConnection = null;
-            BufferedReader reader = null;
-
-            // Will contain the raw JSON response as a string.
-            String catalogJsonStr = null;
-
-            try {
-                final String URL_BASE = "http://api.themoviedb.org/3/movie/";
-                final String API_KEY_STR = "api_key";
-                final String API_KEY_VALUE = "<YOUR_API_KEY>";
-
-                Uri builtUri = Uri.parse(URL_BASE).buildUpon()
-                        .appendEncodedPath(params[0])
-                        .appendQueryParameter(API_KEY_STR, API_KEY_VALUE)
-                        .build();
-
-                URL url = new URL(builtUri.toString());
-
-                // Create the request to themoviedb, and open the connection
-                urlConnection = (HttpURLConnection) url.openConnection();
-                urlConnection.setRequestMethod("GET");
-                urlConnection.connect();
-
-                // Read the input stream into a String
-                InputStream inputStream = urlConnection.getInputStream();
-                StringBuffer buffer = new StringBuffer();
-                if (inputStream == null) {
-                    // Nothing to do.
-                    return null;
-                }
-                reader = new BufferedReader(new InputStreamReader(inputStream));
-
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    // Since it's JSON, adding a newline isn't necessary (it won't affect parsing)
-                    // But it does make debugging a *lot* easier if you print out the completed
-                    // buffer for debugging.
-                    buffer.append(line + "\n");
-                }
-
-                if (buffer.length() == 0) {
-                    // Stream was empty.  No point in parsing.
-                    return null;
-                }
-                catalogJsonStr = buffer.toString();
-
-            } catch (IOException e) {
-                Log.e(LOG_TAG, "Error ", e);
-                // If the code didn't successfully get the weather data, there's no point in attemping
-                // to parse it.
-                return null;
-            } finally {
-                if (urlConnection != null) {
-                    urlConnection.disconnect();
-                }
-                if (reader != null) {
-                    try {
-                        reader.close();
-                    } catch (final IOException e) {
-                        Log.e(LOG_TAG, "Error closing stream", e);
-                    }
-                }
-            }
-
-            try {
-                return getMoviesDataFromJson(catalogJsonStr);
-            } catch (JSONException e) {
-                Log.e(LOG_TAG, e.getMessage(), e);
-                e.printStackTrace();
-            }
-
-            return null;
+    @Override
+    public void onLoadFinished(Loader<Cursor> cursorLoader, Cursor cursor) {
+        mCatalogAdapter.swapCursor(cursor);
+        if (mPosition != ListView.INVALID_POSITION) {
+            // If we don't need to restart the loader, and there's a desired position to restore
+            // to, do so now.
+            mGridView.smoothScrollToPosition(mPosition);
         }
+    }
 
-        protected void onProgressUpdate() {
-        }
-
-        protected void onPostExecute(String[] data) {
-            mCatalogAdapter.clear();
-            if(data != null ) {
-                for (String movie : data) {
-                    mCatalogAdapter.add(new Movie(movie));
-                }
-            }
-        }
+    @Override
+    public void onLoaderReset(Loader<Cursor> cursorLoader) {
+        mCatalogAdapter.swapCursor(null);
     }
 }
