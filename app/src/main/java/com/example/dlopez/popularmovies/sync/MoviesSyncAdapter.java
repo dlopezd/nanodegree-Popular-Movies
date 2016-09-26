@@ -12,6 +12,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 
+import com.example.dlopez.popularmovies.BuildConfig;
 import com.example.dlopez.popularmovies.R;
 import com.example.dlopez.popularmovies.Utility;
 import com.example.dlopez.popularmovies.data.MoviesContract;
@@ -51,7 +52,7 @@ public class MoviesSyncAdapter extends AbstractThreadedSyncAdapter {
         try {
             final String URL_BASE = "http://api.themoviedb.org/3/movie/";
             final String API_KEY_STR = "api_key";
-            final String API_KEY_VALUE = "<YOUR_API_KEY>";
+            final String API_KEY_VALUE = BuildConfig.THE_MOVIE_DB_API_KEY;
 
 
             Uri builtUri = Uri.parse(URL_BASE).buildUpon()

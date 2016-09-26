@@ -15,6 +15,7 @@ public class MainActivity extends AppCompatActivity implements CatalogFragment.C
 
     private boolean mTwoPane = false;
     private String mOrder;
+    private Uri uriMovieSelected;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,14 +74,14 @@ public class MainActivity extends AppCompatActivity implements CatalogFragment.C
             setTitle(getString(R.string.pref_order_top_rated_label));
         }
 
-        // update the location in our second pane using the fragment manager
+        // update the movie in our second pane using the fragment manager
         if (order != null && !order.equals(mOrder)) {
             CatalogFragment cf = (CatalogFragment) getSupportFragmentManager().findFragmentById(R.id.catalog_fragment);
             if ( null != cf ) {
                 cf.onOrderChanged();
                 DetailMovieFragment df = (DetailMovieFragment)getSupportFragmentManager().findFragmentByTag(DETAILFRAGMENT_TAG);
                 if ( null != df ) {
-                    df.reloadMovie();
+                    df.reloadMovie(uriMovieSelected);
                 }
             }
             mOrder = order;
@@ -90,6 +91,7 @@ public class MainActivity extends AppCompatActivity implements CatalogFragment.C
     @Override
     public void onItemSelected(Uri contentUri) {
         if (mTwoPane) {
+            uriMovieSelected = contentUri;
             Bundle args = new Bundle();
             args.putParcelable(DetailMovieFragment.DETAIL_URI, contentUri);
 

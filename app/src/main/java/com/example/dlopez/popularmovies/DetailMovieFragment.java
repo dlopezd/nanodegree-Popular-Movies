@@ -264,11 +264,6 @@ public class DetailMovieFragment extends Fragment implements LoaderManager.Loade
                     setIconFavorite(mFavorite,mIsFavorite);
                 }
             });
-
-            // If onCreateOptionsMenu has already happened, we need to update the share intent now.
-            if (mShareActionProvider != null) {
-
-            }
         }
     }
 
@@ -313,8 +308,7 @@ public class DetailMovieFragment extends Fragment implements LoaderManager.Loade
         mReviewList.requestLayout();
     }
 
-    public void reloadMovie(){
-        Uri uri = mUri;
+    public void reloadMovie(Uri uri){
         if (null != uri) {
             getLoaderManager().restartLoader(DETAIL_LOADER, null, this);
         }

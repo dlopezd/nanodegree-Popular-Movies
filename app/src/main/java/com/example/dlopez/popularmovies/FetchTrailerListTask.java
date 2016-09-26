@@ -52,7 +52,7 @@ public class FetchTrailerListTask extends AsyncTask<String, Void, String[]> {
             final String URL_BASE = "http://api.themoviedb.org/3/movie/";
             final String API_KEY_STR = "api_key";
             final String ID_MOVIE = params[0];
-            final String API_KEY_VALUE = "<YOUR_API_KEY>";
+            final String API_KEY_VALUE = BuildConfig.THE_MOVIE_DB_API_KEY;
 
             Uri builtUri = Uri.parse(URL_BASE).buildUpon()
                     .appendEncodedPath(ID_MOVIE)
